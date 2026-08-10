@@ -151,7 +151,7 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = "Data Structures & Algorithms",
+                    text = if (lectureTitle.isNotBlank()) lectureTitle else "New Classroom Recording",
                     color = Color.White,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold

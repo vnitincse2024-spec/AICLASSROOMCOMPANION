@@ -41,7 +41,7 @@ fun FlashcardsScreen(navController: NavController, transcription: String, viewMo
     val flashcardsState by viewModel.flashcardsState.collectAsState()
 
     LaunchedEffect(Unit) {
-        if (flashcardsState is AIState.Idle && transcription.isNotBlank() && transcription != "no_data") {
+        if (flashcardsState is AIState.Idle) {
             viewModel.generateFlashcards(transcription)
         }
     }
@@ -56,11 +56,11 @@ fun FlashcardsScreen(navController: NavController, transcription: String, viewMo
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) {
+                    IconButton(onClick = { /* Add flashcard */ }) {
                         Icon(Icons.Default.Add, contentDescription = "Add", tint = Gold)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         bottomBar = {

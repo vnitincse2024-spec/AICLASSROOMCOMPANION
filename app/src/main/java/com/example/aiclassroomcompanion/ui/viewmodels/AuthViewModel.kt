@@ -48,7 +48,12 @@ class AuthViewModel : ViewModel() {
         auth.signInWithEmailAndPassword(email, password)
             .addOnCompleteListener { task ->
                 if (task.isSuccessful) {
-                    _authState.value = AuthState.Authenticated(auth.currentUser!!)
+                    val user = auth.currentUser
+                    if (user != null) {
+                        _authState.value = AuthState.Authenticated(user)
+                    } else {
+                        _authState.value = AuthState.Error("Login succeeded but user profile was null")
+                    }
                 } else {
                     _authState.value = AuthState.Error(task.exception?.message ?: "Login failed")
                 }

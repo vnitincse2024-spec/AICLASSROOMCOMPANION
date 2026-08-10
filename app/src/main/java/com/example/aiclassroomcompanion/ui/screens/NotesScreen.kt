@@ -26,9 +26,17 @@ import com.example.aiclassroomcompanion.ui.theme.Gold
 import com.example.aiclassroomcompanion.ui.viewmodels.AIState
 import com.example.aiclassroomcompanion.ui.viewmodels.LectureViewModel
 
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotesScreen(navController: NavController, transcription: String, viewModel: LectureViewModel = viewModel()) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     var selectedTab by remember { mutableIntStateOf(0) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     
@@ -37,9 +45,9 @@ fun NotesScreen(navController: NavController, transcription: String, viewModel: 
     
     val languages = listOf("Spanish", "French", "German", "Hindi", "Japanese", "Telugu")
 
-    // Simulate generation for demo purposes if idle
+    // Trigger generation for active transcription
     LaunchedEffect(Unit) {
-        if (notesState is AIState.Idle && transcription.isNotBlank() && transcription != "no_data") {
+        if (notesState is AIState.Idle) {
             viewModel.generateNotes(transcription)
         }
     }
@@ -58,7 +66,7 @@ fun NotesScreen(navController: NavController, transcription: String, viewModel: 
                         Icon(Icons.Default.Translate, "Translate", tint = Gold)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent
                 )
             )
@@ -71,23 +79,49 @@ fun NotesScreen(navController: NavController, transcription: String, viewModel: 
             ) {
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val text = (notesState as? AIState.Success)?.result ?: ""
+                        if (text.isNotEmpty()) {
+                            clipboardManager.setText(AnnotatedString(text))
+                            Toast.makeText(context, "Notes copied to clipboard", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     icon = { Icon(Icons.Default.ContentCopy, contentDescription = "Copy") },
                     label = { Text("Copy", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = Gold, unselectedTextColor = Gold)
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val text = (notesState as? AIState.Success)?.result ?: ""
+                        if (text.isNotEmpty()) {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Notes"))
+                        }
+                    },
                     icon = { Icon(Icons.Default.Share, contentDescription = "Share") },
                     label = { Text("Share", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = Gold, unselectedTextColor = Gold)
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val text = (notesState as? AIState.Success)?.result ?: ""
+                        if (text.isNotEmpty()) {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Export Notes"))
+                        }
+                    },
                     icon = { Icon(Icons.Default.PictureAsPdf, contentDescription = "Export PDF") },
-                    label = { Text("Export PDF", fontSize = 10.sp) },
+                    label = { Text("Export", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = Gold, unselectedTextColor = Gold)
                 )
             }

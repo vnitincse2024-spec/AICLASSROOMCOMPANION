@@ -68,7 +68,7 @@ fun LecturesScreen(navController: NavController, viewModel: LibraryViewModel = v
                             Icon(Icons.Default.Search, "Search", tint = Gold)
                         }
                     },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+                    colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = Color.Transparent,
                         titleContentColor = Color.White
                     )

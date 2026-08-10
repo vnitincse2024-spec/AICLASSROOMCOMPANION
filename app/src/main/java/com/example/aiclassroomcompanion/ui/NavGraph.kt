@@ -7,6 +7,7 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import android.net.Uri
 import com.example.aiclassroomcompanion.ui.screens.*
 
 sealed class Screen(val route: String) {
@@ -16,18 +17,18 @@ sealed class Screen(val route: String) {
     object Home : Screen("home")
     object Lectures : Screen("lectures")
     object Notes : Screen("notes/{transcription}") {
-        fun createRoute(transcription: String) = "notes/$transcription"
+        fun createRoute(transcription: String) = "notes/${Uri.encode(transcription.ifEmpty { "no_data" })}"
     }
     object Summary : Screen("summary/{transcription}") {
-        fun createRoute(transcription: String) = "summary/$transcription"
+        fun createRoute(transcription: String) = "summary/${Uri.encode(transcription.ifEmpty { "no_data" })}"
     }
     object Profile : Screen("profile")
     object Recording : Screen("recording")
     object Flashcards : Screen("flashcards/{transcription}") {
-        fun createRoute(transcription: String) = "flashcards/$transcription"
+        fun createRoute(transcription: String) = "flashcards/${Uri.encode(transcription.ifEmpty { "no_data" })}"
     }
     object Quiz : Screen("quiz/{transcription}") {
-        fun createRoute(transcription: String) = "quiz/$transcription"
+        fun createRoute(transcription: String) = "quiz/${Uri.encode(transcription.ifEmpty { "no_data" })}"
     }
     object Chat : Screen("chat")
 }
@@ -58,28 +59,32 @@ fun AppNavGraph(navController: NavHostController, modifier: Modifier = Modifier)
             route = Screen.Notes.route,
             arguments = listOf(navArgument("transcription") { type = NavType.StringType })
         ) { backStackEntry ->
-            val transcription = backStackEntry.arguments?.getString("transcription") ?: ""
+            val raw = backStackEntry.arguments?.getString("transcription") ?: ""
+            val transcription = Uri.decode(raw)
             NotesScreen(navController, transcription = transcription)
         }
         composable(
             route = Screen.Summary.route,
             arguments = listOf(navArgument("transcription") { type = NavType.StringType })
         ) { backStackEntry ->
-            val transcription = backStackEntry.arguments?.getString("transcription") ?: ""
+            val raw = backStackEntry.arguments?.getString("transcription") ?: ""
+            val transcription = Uri.decode(raw)
             SummaryScreen(navController, transcription = transcription)
         }
         composable(
             route = Screen.Flashcards.route,
             arguments = listOf(navArgument("transcription") { type = NavType.StringType })
         ) { backStackEntry ->
-            val transcription = backStackEntry.arguments?.getString("transcription") ?: ""
+            val raw = backStackEntry.arguments?.getString("transcription") ?: ""
+            val transcription = Uri.decode(raw)
             FlashcardsScreen(navController, transcription = transcription)
         }
         composable(
             route = Screen.Quiz.route,
             arguments = listOf(navArgument("transcription") { type = NavType.StringType })
         ) { backStackEntry ->
-            val transcription = backStackEntry.arguments?.getString("transcription") ?: ""
+            val raw = backStackEntry.arguments?.getString("transcription") ?: ""
+            val transcription = Uri.decode(raw)
             QuizScreen(navController, transcription = transcription)
         }
         composable(Screen.Profile.route) {

@@ -36,7 +36,7 @@ fun QuizScreen(navController: NavController, transcription: String, viewModel: L
     val quizState by viewModel.quizState.collectAsState()
 
     LaunchedEffect(Unit) {
-        if (quizState is AIState.Idle && transcription.isNotBlank() && transcription != "no_data") {
+        if (quizState is AIState.Idle) {
             viewModel.generateQuiz(transcription)
         }
     }
@@ -50,7 +50,7 @@ fun QuizScreen(navController: NavController, transcription: String, viewModel: L
                         Icon(Icons.Default.ArrowBackIosNew, contentDescription = "Back", tint = Gold)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { paddingValues ->

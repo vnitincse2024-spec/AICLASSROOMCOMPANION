@@ -28,14 +28,19 @@ import com.example.aiclassroomcompanion.ui.theme.Gold
 import com.example.aiclassroomcompanion.ui.theme.Maroon
 import java.util.*
 
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.aiclassroomcompanion.util.HuggingFaceService
+import kotlinx.coroutines.launch
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(navController: NavController) {
     var messageText by remember { mutableStateOf("") }
+    val scope = rememberCoroutineScope()
+    val hfService = remember { HuggingFaceService() }
+    
     val messages = remember { mutableStateListOf(
-        ChatMessage("Hello! How can I help you with today's lecture?", false),
-        ChatMessage("What is the difference between a stack and a queue?", true),
-        ChatMessage("A stack follows LIFO (Last-In-First-Out) where the last element added is removed first. A queue follows FIFO (First-In-First-Out) where the first element added is removed first.", false)
+        ChatMessage("Hello! I am your AI Classroom Assistant. Ask me anything about your lectures, notes, or study topics!", false)
     ) }
 
     Scaffold(
@@ -43,8 +48,8 @@ fun ChatScreen(navController: NavController) {
             CenterAlignedTopAppBar(
                 title = { 
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("AI Chat", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text("Data Structures Lecture", color = Color.LightGray, fontSize = 12.sp)
+                        Text("AI Study Assistant", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text("Interactive Classroom Assistant", color = Color.LightGray, fontSize = 12.sp)
                     }
                 },
                 navigationIcon = {
@@ -53,11 +58,11 @@ fun ChatScreen(navController: NavController) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Default.Schedule, contentDescription = "History", tint = Gold)
+                    IconButton(onClick = { messages.clear(); messages.add(ChatMessage("Hello! How can I help you with your studies today?", false)) }) {
+                        Icon(Icons.Default.Schedule, contentDescription = "Clear History", tint = Gold)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         bottomBar = {
@@ -72,7 +77,7 @@ fun ChatScreen(navController: NavController) {
                     TextField(
                         value = messageText,
                         onValueChange = { messageText = it },
-                        placeholder = { Text("Ask anything about this lecture...", color = Color.Gray, fontSize = 14.sp) },
+                        placeholder = { Text("Ask anything about your lecture...", color = Color.Gray, fontSize = 14.sp) },
                         modifier = Modifier.weight(1f),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
@@ -86,9 +91,15 @@ fun ChatScreen(navController: NavController) {
                     )
                     IconButton(
                         onClick = { 
-                            if (messageText.isNotBlank()) {
-                                messages.add(ChatMessage(messageText, true))
+                            val query = messageText.trim()
+                            if (query.isNotBlank()) {
+                                messages.add(ChatMessage(query, true))
                                 messageText = ""
+                                scope.launch {
+                                    val aiResponse = hfService.generateText("You are an expert classroom assistant. Answer this student query clearly and concisely: $query")
+                                        ?: "Here is a breakdown for '$query': It is an important concept in your lecture. Review your generated notes and summary for additional details!"
+                                    messages.add(ChatMessage(aiResponse, false))
+                                }
                             }
                         },
                         modifier = Modifier.size(40.dp).clip(CircleShape).background(Gold)

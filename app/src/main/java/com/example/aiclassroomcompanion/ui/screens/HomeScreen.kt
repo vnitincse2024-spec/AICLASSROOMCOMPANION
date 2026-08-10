@@ -33,9 +33,15 @@ import com.example.aiclassroomcompanion.ui.theme.Maroon
 import com.example.aiclassroomcompanion.ui.viewmodels.LibraryViewModel
 import com.example.aiclassroomcompanion.util.Lecture
 
+import com.google.firebase.auth.FirebaseAuth
+
 @Composable
 fun HomeScreen(navController: NavController, viewModel: LibraryViewModel = viewModel()) {
     val recentLecture by viewModel.recentLecture.collectAsState()
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    val userName = currentUser?.displayName?.ifBlank { currentUser.email?.substringBefore("@") } 
+        ?: currentUser?.email?.substringBefore("@") 
+        ?: "Student"
     
     Column(
         modifier = Modifier
@@ -50,7 +56,7 @@ fun HomeScreen(navController: NavController, viewModel: LibraryViewModel = viewM
             )
             .padding(16.dp)
     ) {
-        HeaderSection()
+        HeaderSection(userName = userName)
         Spacer(modifier = Modifier.height(24.dp))
         RecordLectureCard(navController)
         Spacer(modifier = Modifier.height(24.dp))
@@ -61,7 +67,7 @@ fun HomeScreen(navController: NavController, viewModel: LibraryViewModel = viewM
 }
 
 @Composable
-fun HeaderSection() {
+fun HeaderSection(userName: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -69,7 +75,7 @@ fun HeaderSection() {
     ) {
         Column {
             Text(
-                text = "Hello, Nitin 👋",
+                text = "Hello, $userName 👋",
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
@@ -81,7 +87,7 @@ fun HeaderSection() {
             )
         }
         IconButton(
-            onClick = { /* TODO */ },
+            onClick = { /* Notifications */ },
             modifier = Modifier
                 .clip(CircleShape)
                 .background(Color.White.copy(alpha = 0.1f))

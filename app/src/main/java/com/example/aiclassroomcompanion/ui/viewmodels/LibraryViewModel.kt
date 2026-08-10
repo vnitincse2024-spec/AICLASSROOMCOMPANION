@@ -31,7 +31,12 @@ class LibraryViewModel : ViewModel() {
     }
 
     fun loadLectures() {
-        val userId = auth.currentUser?.uid ?: return
+        val userId = auth.currentUser?.uid
+        if (userId == null) {
+            _libraryState.value = LibraryState.Success(emptyList())
+            _recentLecture.value = null
+            return
+        }
         _libraryState.value = LibraryState.Loading
         
         viewModelScope.launch {

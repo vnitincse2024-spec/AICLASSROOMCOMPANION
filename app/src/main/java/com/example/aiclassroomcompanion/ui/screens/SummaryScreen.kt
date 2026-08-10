@@ -25,13 +25,21 @@ import com.example.aiclassroomcompanion.ui.theme.Gold
 import com.example.aiclassroomcompanion.ui.viewmodels.AIState
 import com.example.aiclassroomcompanion.ui.viewmodels.LectureViewModel
 
+import android.content.Intent
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SummaryScreen(navController: NavController, transcription: String, viewModel: LectureViewModel = viewModel()) {
+    val context = LocalContext.current
+    val clipboardManager = LocalClipboardManager.current
     val summaryState by viewModel.summaryState.collectAsState()
 
     LaunchedEffect(Unit) {
-        if (summaryState is AIState.Idle && transcription.isNotBlank() && transcription != "no_data") {
+        if (summaryState is AIState.Idle) {
             viewModel.generateSummary(transcription)
         }
     }
@@ -45,11 +53,11 @@ fun SummaryScreen(navController: NavController, transcription: String, viewModel
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO */ }) {
+                    IconButton(onClick = { /* AI Info */ }) {
                         Icon(Icons.Default.AutoAwesome, "AI", tint = Gold)
                     }
                 },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         bottomBar = {
@@ -60,23 +68,49 @@ fun SummaryScreen(navController: NavController, transcription: String, viewModel
             ) {
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val text = (summaryState as? AIState.Success)?.result ?: ""
+                        if (text.isNotEmpty()) {
+                            clipboardManager.setText(AnnotatedString(text))
+                            Toast.makeText(context, "Summary copied to clipboard", Toast.LENGTH_SHORT).show()
+                        }
+                    },
                     icon = { Icon(Icons.Default.ContentCopy, contentDescription = "Copy") },
                     label = { Text("Copy", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = Gold, unselectedTextColor = Gold)
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val text = (summaryState as? AIState.Success)?.result ?: ""
+                        if (text.isNotEmpty()) {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Share Summary"))
+                        }
+                    },
                     icon = { Icon(Icons.Default.Share, contentDescription = "Share") },
                     label = { Text("Share", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = Gold, unselectedTextColor = Gold)
                 )
                 NavigationBarItem(
                     selected = false,
-                    onClick = { /* TODO */ },
+                    onClick = {
+                        val text = (summaryState as? AIState.Success)?.result ?: ""
+                        if (text.isNotEmpty()) {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, text)
+                                type = "text/plain"
+                            }
+                            context.startActivity(Intent.createChooser(sendIntent, "Export Summary"))
+                        }
+                    },
                     icon = { Icon(Icons.Default.PictureAsPdf, contentDescription = "Export PDF") },
-                    label = { Text("Export PDF", fontSize = 10.sp) },
+                    label = { Text("Export", fontSize = 10.sp) },
                     colors = NavigationBarItemDefaults.colors(unselectedIconColor = Gold, unselectedTextColor = Gold)
                 )
             }

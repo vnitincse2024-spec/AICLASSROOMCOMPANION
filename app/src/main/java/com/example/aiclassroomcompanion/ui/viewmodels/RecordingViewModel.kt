@@ -6,7 +6,6 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aiclassroomcompanion.speech.VoskSpeechManager
-import com.example.aiclassroomcompanion.util.AudioRecorder
 import com.example.aiclassroomcompanion.util.Lecture
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -23,26 +22,34 @@ import java.util.*
 
 class RecordingViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val audioRecorder = AudioRecorder(application)
     private val storage = FirebaseStorage.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     
+    private fun extractJsonValue(json: String, key: String): String {
+        val regex = "\"$key\"\\s*:\\s*\"(.*?)\"".toRegex()
+        return regex.find(json)?.groupValues?.get(1) ?: ""
+    }
+
     private val voskManager = VoskSpeechManager(
         context = application,
         onResult = { json ->
-            val text = JSONObject(json).optString("text")
+            val text = extractJsonValue(json, "text")
             if (text.isNotBlank()) {
-                _transcription.value += " $text"
+                val current = _transcription.value
+                _transcription.value = if (current.isBlank()) text else "$current $text"
                 _partialText.value = ""
             }
         },
         onPartialResult = { json ->
-            val partial = JSONObject(json).optString("partial")
+            val partial = extractJsonValue(json, "partial")
             _partialText.value = partial
         },
         onError = { e ->
-            Log.e("Vosk", "Error", e)
+            Log.e("RecordingViewModel", "Vosk Speech error", e)
+        },
+        onVolumeChanged = { vol ->
+            _volume.value = vol
         }
     )
 
@@ -72,18 +79,16 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun startRecording() {
-        val file = File(getApplication<Application>().cacheDir, "lecture_${System.currentTimeMillis()}.mp4")
+        val file = File(getApplication<Application>().cacheDir, "lecture_${System.currentTimeMillis()}.wav")
         currentFile = file
-        audioRecorder.start(file)
         _isRecording.value = true
         _transcription.value = ""
         _partialText.value = ""
         startTimer()
-        voskManager.startListening()
+        voskManager.startListening(file)
     }
 
     fun stopRecording() {
-        audioRecorder.stop()
         voskManager.stopListening()
         _isRecording.value = false
         stopTimer()
@@ -143,7 +148,6 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     override fun onCleared() {
         super.onCleared()
-        audioRecorder.stop()
         voskManager.destroy()
     }
 }
