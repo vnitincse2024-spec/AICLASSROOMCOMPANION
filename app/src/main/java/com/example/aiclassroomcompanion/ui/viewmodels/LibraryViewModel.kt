@@ -3,6 +3,7 @@ package com.example.aiclassroomcompanion.ui.viewmodels
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aiclassroomcompanion.util.Lecture
+import com.example.aiclassroomcompanion.util.LocalLectureStore
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -27,32 +28,47 @@ class LibraryViewModel : ViewModel() {
     val recentLecture: StateFlow<Lecture?> = _recentLecture
 
     init {
-        loadLectures()
+        viewModelScope.launch {
+            LocalLectureStore.localLectures.collect {
+                loadLectures()
+            }
+        }
     }
 
     fun loadLectures() {
-        val userId = auth.currentUser?.uid
-        if (userId == null) {
-            _libraryState.value = LibraryState.Success(emptyList())
-            _recentLecture.value = null
-            return
-        }
+        val userId = auth.currentUser?.uid ?: "guest_user"
         _libraryState.value = LibraryState.Loading
         
         viewModelScope.launch {
             try {
-                val snapshot = firestore.collection("lectures")
-                    .whereEqualTo("userId", userId)
-                    .get()
-                    .await()
+                val remoteLectures = try {
+                    val snapshot = firestore.collection("lectures")
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .await()
+                    snapshot.toObjects(Lecture::class.java)
+                } catch (e: Exception) {
+                    emptyList<Lecture>()
+                }
                 
-                val lectures = snapshot.toObjects(Lecture::class.java)
-                    .sortedByDescending { it.date }
+                val localList = LocalLectureStore.getLectures()
+                val mergedMap = LinkedHashMap<String, Lecture>()
                 
-                _libraryState.value = LibraryState.Success(lectures)
-                _recentLecture.value = lectures.firstOrNull()
+                localList.forEach { if (it.id.isNotEmpty()) mergedMap[it.id] = it else mergedMap[it.title] = it }
+                remoteLectures.forEach { if (it.id.isNotEmpty()) mergedMap[it.id] = it }
+
+                val allLectures = mergedMap.values.sortedByDescending { it.date }
+                
+                _libraryState.value = LibraryState.Success(allLectures)
+                _recentLecture.value = allLectures.firstOrNull()
             } catch (e: Exception) {
-                _libraryState.value = LibraryState.Error(e.message ?: "Failed to load library")
+                val fallbackList = LocalLectureStore.getLectures()
+                if (fallbackList.isNotEmpty()) {
+                    _libraryState.value = LibraryState.Success(fallbackList)
+                    _recentLecture.value = fallbackList.firstOrNull()
+                } else {
+                    _libraryState.value = LibraryState.Error(e.message ?: "Failed to load library")
+                }
             }
         }
     }

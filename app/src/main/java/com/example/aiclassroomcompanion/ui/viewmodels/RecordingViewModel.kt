@@ -148,30 +148,40 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     private fun uploadLecture(file: File, title: String, duration: String) {
-        val userId = auth.currentUser?.uid ?: return
-        val fileName = "lectures/$userId/${file.name}"
-        val storageRef = storage.reference.child(fileName)
-        
+        val userId = auth.currentUser?.uid ?: "guest_user"
         _uploadState.value = UploadState.Uploading
         
         viewModelScope.launch {
+            val docRef = firestore.collection("lectures").document()
+            var downloadUrl = Uri.fromFile(file).toString()
+
             try {
+                val fileName = "lectures/$userId/${file.name}"
+                val storageRef = storage.reference.child(fileName)
                 storageRef.putFile(Uri.fromFile(file)).await()
-                val downloadUrl = storageRef.downloadUrl.await().toString()
-                
-                val lecture = Lecture(
-                    userId = userId,
-                    title = title,
-                    duration = duration,
-                    audioUrl = downloadUrl,
-                    transcription = _transcription.value
-                )
-                
-                firestore.collection("lectures").add(lecture).await()
-                _uploadState.value = UploadState.Success
+                downloadUrl = storageRef.downloadUrl.await().toString()
             } catch (e: Exception) {
-                _uploadState.value = UploadState.Error(e.message ?: "Upload failed")
+                Log.w("RecordingViewModel", "Firebase Storage upload failed, storing local audio URI", e)
             }
+            
+            val lecture = Lecture(
+                id = docRef.id,
+                userId = userId,
+                title = title,
+                duration = duration,
+                audioUrl = downloadUrl,
+                transcription = _transcription.value,
+                type = "Recorded"
+            )
+
+            try {
+                docRef.set(lecture).await()
+            } catch (e: Exception) {
+                Log.w("RecordingViewModel", "Firestore save failed, saved locally", e)
+            }
+
+            com.example.aiclassroomcompanion.util.LocalLectureStore.addLecture(lecture)
+            _uploadState.value = UploadState.Success
         }
     }
 

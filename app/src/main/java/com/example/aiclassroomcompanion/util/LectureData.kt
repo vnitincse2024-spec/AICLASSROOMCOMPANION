@@ -11,5 +11,6 @@ data class Lecture(
     val audioUrl: String = "",
     val transcription: String = "",
     val notes: String = "",
-    val summary: String = ""
+    val summary: String = "",
+    val type: String = "Recorded"
 )

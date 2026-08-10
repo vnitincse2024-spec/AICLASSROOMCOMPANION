@@ -38,6 +38,10 @@ fun LecturesScreen(navController: NavController, viewModel: LibraryViewModel = v
     val tabs = listOf("All", "Recorded", "Uploaded")
     val libraryState by viewModel.libraryState.collectAsState()
 
+    LaunchedEffect(Unit) {
+        viewModel.loadLectures()
+    }
+
     Scaffold(
         topBar = {
             if (isSearchActive) {
@@ -143,21 +147,43 @@ fun LecturesScreen(navController: NavController, viewModel: LibraryViewModel = v
                         }
                     }
                     is LibraryState.Success -> {
+                        val tabFiltered = when (selectedTab) {
+                            1 -> state.lectures.filter { it.type.isEmpty() || it.type.equals("Recorded", ignoreCase = true) }
+                            2 -> state.lectures.filter { it.type.equals("Uploaded", ignoreCase = true) }
+                            else -> state.lectures
+                        }
+
                         val filteredLectures = if (searchQuery.isEmpty()) {
-                            state.lectures
+                            tabFiltered
                         } else {
-                            state.lectures.filter { it.title.contains(searchQuery, ignoreCase = true) }
+                            tabFiltered.filter { it.title.contains(searchQuery, ignoreCase = true) }
                         }
                         
-                        items(filteredLectures) { lecture ->
-                            val dateString = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(lecture.date.toDate())
-                            Surface(
-                                onClick = { 
-                                    navController.navigate(Screen.Notes.createRoute(lecture.transcription.ifEmpty { "Default transcription" }))
-                                },
-                                color = Color.Transparent
-                            ) {
-                                LectureItem(lecture.title, "$dateString • ${lecture.duration}")
+                        if (filteredLectures.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillParentMaxSize(),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = if (selectedTab == 1) "No recorded lectures yet"
+                                               else if (selectedTab == 2) "No uploaded lectures yet"
+                                               else "No lectures available",
+                                        color = Color.LightGray.copy(alpha = 0.6f)
+                                    )
+                                }
+                            }
+                        } else {
+                            items(filteredLectures) { lecture ->
+                                val dateString = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(lecture.date.toDate())
+                                Surface(
+                                    onClick = { 
+                                        navController.navigate(Screen.Notes.createRoute(lecture.transcription.ifEmpty { "Default transcription" }))
+                                    },
+                                    color = Color.Transparent
+                                ) {
+                                    LectureItem(lecture.title, "$dateString • ${lecture.duration}")
+                                }
                             }
                         }
                     }
