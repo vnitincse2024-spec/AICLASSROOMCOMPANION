@@ -36,6 +36,14 @@ import com.google.accompanist.permissions.isGranted
 import com.google.accompanist.permissions.rememberPermissionState
 import java.util.*
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.withStyle
+
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalPermissionsApi::class)
 @Composable
 fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel = viewModel()) {
@@ -50,6 +58,7 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
     var lectureTitle by remember { mutableStateOf("") }
     
     val permissionState = rememberPermissionState(permission = Manifest.permission.RECORD_AUDIO)
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(uploadState) {
         if (uploadState is UploadState.Success) {
@@ -61,6 +70,11 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
         if (!permissionState.status.isGranted) {
             permissionState.launchPermissionRequest()
         }
+    }
+
+    // Auto-scroll transcription preview when new text arrives
+    LaunchedEffect(transcription, partialText) {
+        scrollState.animateScrollTo(scrollState.maxValue)
     }
 
     // Pulse animation for the mic
@@ -163,8 +177,15 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
                 )
             }
 
-            // Animated Mic Section
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.size(250.dp)) {
+            // Animated Interactive Mic Section
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .size(250.dp)
+                    .clickable {
+                        if (isRecording) viewModel.stopRecording() else viewModel.startRecording()
+                    }
+            ) {
                 if (isRecording) {
                     val volumeScale = (1f + (volume.coerceIn(0f, 10f) / 10f)).coerceIn(1f, 2f)
                     Box(
@@ -184,7 +205,7 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
-                        contentDescription = null,
+                        contentDescription = if (isRecording) "Pause" else "Record",
                         modifier = Modifier.size(48.dp),
                         tint = Maroon
                     )
@@ -205,7 +226,7 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Start/Stop Button
+                    // Start/Pause Button
                     IconButton(
                         onClick = { 
                             if (isRecording) viewModel.stopRecording() else viewModel.startRecording()
@@ -243,31 +264,52 @@ fun RecordingScreen(navController: NavController, viewModel: RecordingViewModel 
                 }
             }
             
-            // Transcription Preview
+            // Live Transcription Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp),
+                    .height(130.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Box(modifier = Modifier.padding(16.dp), contentAlignment = Alignment.Center) {
-                    val displayText = buildString {
-                        if (transcription.isNotEmpty()) append(transcription.trim())
-                        if (partialText.isNotEmpty()) {
-                            if (isNotEmpty()) append(" ")
-                            append(partialText)
-                        }
-                    }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(scrollState),
+                    contentAlignment = Alignment.TopStart
+                ) {
+                    val hasFinal = transcription.isNotBlank()
+                    val hasPartial = partialText.isNotBlank()
                     
-                    Text(
-                        text = if (displayText.isNotEmpty()) "\"$displayText...\""
-                               else if (isRecording) "\"Listening for audio...\""
-                               else "\"Transcription paused...\"",
-                        color = Color.LightGray.copy(alpha = 0.7f),
-                        fontSize = 14.sp,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                    if (!hasFinal && !hasPartial) {
+                        Text(
+                            text = if (isRecording) "\"Listening for audio...\"" else "\"Transcription paused...\"",
+                            color = Color.LightGray.copy(alpha = 0.7f),
+                            fontSize = 14.sp
+                        )
+                    } else {
+                        val annotatedText = buildAnnotatedString {
+                            append("\"")
+                            if (hasFinal) {
+                                withStyle(style = SpanStyle(color = Color.White)) {
+                                    append(transcription.trim())
+                                }
+                            }
+                            if (hasPartial) {
+                                if (hasFinal) append(" ")
+                                withStyle(style = SpanStyle(color = Gold, fontStyle = FontStyle.Italic)) {
+                                    append(partialText.trim())
+                                }
+                            }
+                            append("...\"")
+                        }
+                        
+                        Text(
+                            text = annotatedText,
+                            fontSize = 14.sp
+                        )
+                    }
                 }
             }
         }

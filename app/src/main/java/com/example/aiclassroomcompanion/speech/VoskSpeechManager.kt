@@ -87,6 +87,9 @@ class VoskSpeechManager(
                 val channelConfig = AudioFormat.CHANNEL_IN_MONO
                 val audioFormat = AudioFormat.ENCODING_PCM_16BIT
                 val minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
+                if (minBufferSize <= 0) {
+                    throw IOException("Invalid AudioRecord minBufferSize: $minBufferSize")
+                }
                 val bufferSize = maxOf(minBufferSize, 4096)
 
                 recognizer = Recognizer(currentModel, sampleRate.toFloat())

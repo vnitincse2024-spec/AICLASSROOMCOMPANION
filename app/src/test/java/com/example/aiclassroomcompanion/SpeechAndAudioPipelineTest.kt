@@ -7,11 +7,17 @@ import java.io.File
 import java.io.RandomAccessFile
 import kotlin.math.sqrt
 
+import org.json.JSONObject
+
 class SpeechAndAudioPipelineTest {
 
     private fun extractJsonValue(json: String, key: String): String {
-        val regex = "\"$key\"\\s*:\\s*\"(.*?)\"".toRegex()
-        return regex.find(json)?.groupValues?.get(1) ?: ""
+        return try {
+            JSONObject(json).optString(key, "")
+        } catch (e: Throwable) {
+            val regex = "\"$key\"\\s*:\\s*\"((?:\\\\\"|[^\"])*)\"".toRegex()
+            regex.find(json)?.groupValues?.get(1)?.replace("\\\"", "\"") ?: ""
+        }
     }
 
     @Test
@@ -26,6 +32,13 @@ class SpeechAndAudioPipelineTest {
         val jsonString = """{"partial" : "welcome to data"}"""
         val partial = extractJsonValue(jsonString, "partial")
         assertEquals("welcome to data", partial)
+    }
+
+    @Test
+    fun testVoskJsonParsing_multilineAndEscapedJson() {
+        val jsonString = "{\n  \"text\" : \"hello \\\"world\\\"\nnext line\"\n}"
+        val text = extractJsonValue(jsonString, "text")
+        assertEquals("hello \"world\"\nnext line", text)
     }
 
     @Test

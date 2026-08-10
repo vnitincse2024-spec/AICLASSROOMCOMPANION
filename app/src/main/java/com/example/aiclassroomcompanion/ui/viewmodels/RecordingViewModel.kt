@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.aiclassroomcompanion.speech.SpeechRecognizerManager
 import com.example.aiclassroomcompanion.speech.VoskSpeechManager
 import com.example.aiclassroomcompanion.util.Lecture
 import com.google.firebase.auth.FirebaseAuth
@@ -26,9 +27,41 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
     
+    private var isUsingFallback = false
+
     private fun extractJsonValue(json: String, key: String): String {
-        val regex = "\"$key\"\\s*:\\s*\"(.*?)\"".toRegex()
-        return regex.find(json)?.groupValues?.get(1) ?: ""
+        return try {
+            JSONObject(json).optString(key, "")
+        } catch (e: Throwable) {
+            val regex = "\"$key\"\\s*:\\s*\"((?:\\\\\"|[^\"])*)\"".toRegex()
+            regex.find(json)?.groupValues?.get(1)?.replace("\\\"", "\"") ?: ""
+        }
+    }
+
+    private fun appendTranscription(text: String) {
+        val current = _transcription.value
+        _transcription.value = if (current.isBlank()) text else "$current $text"
+        _partialText.value = ""
+    }
+
+    private val speechRecognizerManager by lazy {
+        SpeechRecognizerManager(
+            context = application,
+            onTextChanged = { partial ->
+                _partialText.value = partial
+            },
+            onFinalText = { text ->
+                if (text.isNotBlank()) {
+                    appendTranscription(text)
+                }
+            },
+            onError = { err ->
+                Log.e("RecordingViewModel", "SpeechRecognizer error: $err")
+            },
+            onVolumeChanged = { vol ->
+                _volume.value = vol
+            }
+        )
     }
 
     private val voskManager = VoskSpeechManager(
@@ -36,9 +69,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
         onResult = { json ->
             val text = extractJsonValue(json, "text")
             if (text.isNotBlank()) {
-                val current = _transcription.value
-                _transcription.value = if (current.isBlank()) text else "$current $text"
-                _partialText.value = ""
+                appendTranscription(text)
             }
         },
         onPartialResult = { json ->
@@ -46,7 +77,11 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
             _partialText.value = partial
         },
         onError = { e ->
-            Log.e("RecordingViewModel", "Vosk Speech error", e)
+            Log.e("RecordingViewModel", "Vosk Speech error, switching to SpeechRecognizer fallback", e)
+            if (_isRecording.value && !isUsingFallback) {
+                isUsingFallback = true
+                speechRecognizerManager.startListening()
+            }
         },
         onVolumeChanged = { vol ->
             _volume.value = vol
@@ -81,6 +116,7 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     fun startRecording() {
         val file = File(getApplication<Application>().cacheDir, "lecture_${System.currentTimeMillis()}.wav")
         currentFile = file
+        isUsingFallback = false
         _isRecording.value = true
         _transcription.value = ""
         _partialText.value = ""
@@ -90,6 +126,14 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun stopRecording() {
         voskManager.stopListening()
+        if (isUsingFallback) {
+            speechRecognizerManager.stopListening()
+            isUsingFallback = false
+        }
+        val remainingPartial = _partialText.value.trim()
+        if (remainingPartial.isNotEmpty()) {
+            appendTranscription(remainingPartial)
+        }
         _isRecording.value = false
         stopTimer()
     }
@@ -149,6 +193,9 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     override fun onCleared() {
         super.onCleared()
         voskManager.destroy()
+        if (isUsingFallback) {
+            speechRecognizerManager.destroy()
+        }
     }
 }
 
