@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Main Building Center -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M42,85 V45 L54,25 L66,45 V85 H58 A4,4 0 0 0 50,85 Z" />
+
+    <!-- Left Wing -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M24,85 V52 H40 V85 Z" />
+
+    <!-- Right Wing -->
+    <path
+        android:fillColor="#D4AF37"
+        android:pathData="M68,85 V52 H84 V85 Z" />
+
+    <!-- Windows Left -->
+    <path
+        android:fillColor="#1A0000"
+        android:pathData="M30,58 h4 v4 h-4 z M30,66 h4 v4 h-4 z M30,74 h4 v4 h-4 z" />
+
+    <!-- Windows Right -->
+    <path
+        android:fillColor="#1A0000"
+        android:pathData="M74,58 h4 v4 h-4 z M74,66 h4 v4 h-4 z M74,74 h4 v4 h-4 z" />
+
+</vector>

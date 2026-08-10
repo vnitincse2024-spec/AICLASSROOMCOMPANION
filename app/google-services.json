@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "725569629888",
+    "project_id": "aiclassroomcompanion",
+    "storage_bucket": "aiclassroomcompanion.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:725569629888:android:f327ccf451f92cc806c725",
+        "android_client_info": {
+          "package_name": "com.example.aiclassroomcompanion"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "725569629888-tsbj9q1jq29bfd0bennbecpsm412sqr1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvklnY5-kei69NlqkeqQUVSmOVEkb3E04"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "725569629888-tsbj9q1jq29bfd0bennbecpsm412sqr1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
