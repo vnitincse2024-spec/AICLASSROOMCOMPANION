@@ -40,7 +40,7 @@ fun NotesScreen(navController: NavController, transcription: String, viewModel: 
     var selectedTab by remember { mutableIntStateOf(0) }
     var showLanguageDialog by remember { mutableStateOf(false) }
     
-    val tabs = listOf("AI Notes", "My Notes")
+    val tabs = listOf("AI Notes", "Transcription")
     val notesState by viewModel.notesState.collectAsState()
     
     val languages = listOf("Spanish", "French", "German", "Hindi", "Japanese", "Telugu")
@@ -198,39 +198,82 @@ fun NotesScreen(navController: NavController, transcription: String, viewModel: 
                     .padding(16.dp)
                     .verticalScroll(rememberScrollState())
             ) {
-                when (val state = notesState) {
-                    is AIState.Processing -> {
-                        Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = Gold)
+                when (selectedTab) {
+                    // ── Tab 0: AI-generated notes ──────────────────────────────
+                    0 -> when (val state = notesState) {
+                        is AIState.Processing -> {
+                            Box(modifier = Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(color = Gold)
+                            }
                         }
+                        is AIState.Success -> {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "AI Notes",
+                                        color = Gold,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = state.result
+                                            .replace("# ", "")
+                                            .replace("## ", "\n"),
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        lineHeight = 22.sp
+                                    )
+                                }
+                            }
+                        }
+                        is AIState.Error -> {
+                            Text(text = "Error: ${state.message}", color = Color.Red)
+                        }
+                        else -> {}
                     }
-                    is AIState.Success -> {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+
+                    // ── Tab 1: Raw transcription from the recording ─────────────
+                    1 -> {
+                        if (transcription.isBlank() || transcription == "no_data") {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().height(200.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
                                 Text(
-                                    text = "Lecture Content",
-                                    color = Gold,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Bold
+                                    text = "No transcription available. Record a lecture first.",
+                                    color = Color.LightGray.copy(alpha = 0.6f),
+                                    fontSize = 14.sp
                                 )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = state.result.replace("# ", "").replace("## ", "\n"),
-                                    color = Color.White,
-                                    fontSize = 15.sp,
-                                    lineHeight = 22.sp
-                                )
+                            }
+                        } else {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
+                                shape = RoundedCornerShape(16.dp)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "Recorded Transcription",
+                                        color = Gold,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = transcription,
+                                        color = Color.White,
+                                        fontSize = 15.sp,
+                                        lineHeight = 22.sp
+                                    )
+                                }
                             }
                         }
                     }
-                    is AIState.Error -> {
-                        Text(text = "Error: ${state.message}", color = Color.Red)
-                    }
-                    else -> {}
                 }
             }
         }

@@ -147,81 +147,151 @@ class LectureViewModel : ViewModel() {
     private fun String?.isNull_or_blank_or_fallback(): Boolean = this.isNullOrBlank()
 
     private fun getFallbackNotes(transcription: String): String {
-        val content = if (transcription == "no_data" || transcription.isBlank()) "Standard Data Structures & Algorithms Overview" else transcription
+        if (transcription == "no_data" || transcription.isBlank()) {
+            return """# 📚 Lecture Notes
+
+No transcription available. Please record a lecture and try again."""
+        }
+
+        // Split transcription into sentences for discussion points
+        val sentences = transcription.split(Regex("[.!?]+"))
+            .map { it.trim() }
+            .filter { it.length > 10 }
+            .take(5)
+
+        val discussionPoints = sentences.mapIndexed { i, s ->
+            "${i + 1}. $s."
+        }.joinToString("\n")
+
+        val preview = transcription.take(120).trimEnd()
+
         return """
-            # 📚 Lecture Notes
-            
-            ## 🔍 Key Highlights
-            - **Topic Focus**: ${content.take(60)}...
-            - **Core Concept**: Understanding key fundamentals, operations, and applications discussed in class.
-            
-            ## 📝 Main Discussion Points
-            1. **Definition & Fundamentals**: Core theoretical principles and standard representations.
-            2. **Key Operations**: Access, insertion, deletion, and traversal mechanisms.
-            3. **Time & Space Complexity**: Performance considerations in memory allocation and execution efficiency.
-            
-            ## 💡 Summary & Takeaways
-            - Review key definitions and practice implementing standard algorithms.
-            - Focus on real-world use cases and runtime complexity trade-offs.
+# 📚 Lecture Notes
+
+## 🔍 Overview
+$preview...
+
+## 📝 Key Points from Recording
+$discussionPoints
+
+## 💡 Takeaways
+- Review the full transcription in the **Transcription** tab.
+- Focus on the main ideas discussed during the session.
         """.trimIndent()
     }
 
     private fun getFallbackSummary(transcription: String): String {
-        val content = if (transcription == "no_data" || transcription.isBlank()) "Data Structures & Algorithms" else transcription
+        if (transcription == "no_data" || transcription.isBlank()) {
+            return "No transcription available. Please record a lecture and try again."
+        }
+
+        val preview = transcription.take(500)
+        val ellipsis = if (transcription.length > 500) "..." else ""
+        val wordCount = transcription.split(Regex("\\s+")).size
+        val sentences = transcription.split(Regex("[.!?]+"))
+            .map { it.trim() }
+            .filter { it.length > 8 }
+
+        val bulletPoints = sentences.take(5).joinToString("\n") { "• $it." }
+
         return """
-            This lecture focused on core concepts of $content. Key discussions covered essential data models, practical algorithmic efficiency, memory layout, and operational complexities. 
-            
-            Key Bullet Points:
-            • Fundamental principles of $content
-            • Analysis of runtime complexity and memory efficiency
-            • Comparison between sequential and linked representations
-            • Practical software engineering applications and best practices
-            • Key algorithmic trade-offs for optimization
+📋 Lecture Summary  ($wordCount words recorded)
+
+$preview$ellipsis
+
+Key Points:
+$bulletPoints
         """.trimIndent()
     }
 
     private fun getFallbackFlashcards(transcription: String): List<com.example.aiclassroomcompanion.ui.screens.Flashcard> {
-        return listOf(
-            com.example.aiclassroomcompanion.ui.screens.Flashcard(
-                question = "What is the primary principle of a Stack data structure?",
-                answer = "LIFO (Last In First Out) - the last element added is the first one removed."
-            ),
-            com.example.aiclassroomcompanion.ui.screens.Flashcard(
-                question = "What is the primary principle of a Queue data structure?",
-                answer = "FIFO (First In First Out) - the first element added is the first one removed."
-            ),
-            com.example.aiclassroomcompanion.ui.screens.Flashcard(
-                question = "What is the average time complexity of searching in a Balanced Binary Search Tree?",
-                answer = "O(log n), where n is the number of nodes in the tree."
-            ),
-            com.example.aiclassroomcompanion.ui.screens.Flashcard(
-                question = "What is the difference between an Array and a Linked List?",
-                answer = "Arrays use contiguous memory allocation with O(1) random access, while Linked Lists use dynamic node pointers with O(n) traversal access."
-            ),
-            com.example.aiclassroomcompanion.ui.screens.Flashcard(
-                question = "What is the worst-case time complexity of QuickSort?",
-                answer = "O(n^2), occurring when the pivot selection consistently yields unbalanced partitions."
+        if (transcription == "no_data" || transcription.isBlank()) {
+            return listOf(
+                com.example.aiclassroomcompanion.ui.screens.Flashcard(
+                    question = "No transcription found",
+                    answer = "Please record a lecture first, then re-open Flashcards."
+                )
             )
-        )
+        }
+
+        // Build flashcards from actual sentences in the transcription
+        val sentences = transcription
+            .split(Regex("[.!?]+"))
+            .map { it.trim() }
+            .filter { it.split(" ").size >= 5 } // at least 5 words
+            .take(5)
+
+        return sentences.mapIndexed { index, sentence ->
+            val words = sentence.split(" ")
+            // Create a fill-in-the-blank style card from the sentence
+            val keyWord = words.maxByOrNull { it.length } ?: words.last()
+            com.example.aiclassroomcompanion.ui.screens.Flashcard(
+                question = "What was said about \"${keyWord.take(30)}\" in the lecture?",
+                answer = "$sentence."
+            )
+        }.ifEmpty {
+            listOf(
+                com.example.aiclassroomcompanion.ui.screens.Flashcard(
+                    question = "What is the main topic of this lecture?",
+                    answer = transcription.take(200)
+                )
+            )
+        }
     }
 
     private fun getFallbackQuiz(transcription: String): List<com.example.aiclassroomcompanion.ui.screens.Question> {
-        return listOf(
-            com.example.aiclassroomcompanion.ui.screens.Question(
-                text = "Which data structure follows the Last-In-First-Out (LIFO) order?",
-                options = listOf("Queue", "Stack", "Array", "Linked List"),
-                correctAnswer = 1
-            ),
-            com.example.aiclassroomcompanion.ui.screens.Question(
-                text = "What is the time complexity of pushing an element onto a Stack?",
-                options = listOf("O(1)", "O(n)", "O(log n)", "O(n^2)"),
-                correctAnswer = 0
-            ),
-            com.example.aiclassroomcompanion.ui.screens.Question(
-                text = "Which of the following sorting algorithms has a guaranteed O(n log n) worst-case time complexity?",
-                options = listOf("Bubble Sort", "Quick Sort", "Merge Sort", "Selection Sort"),
-                correctAnswer = 2
+        if (transcription == "no_data" || transcription.isBlank()) {
+            return listOf(
+                com.example.aiclassroomcompanion.ui.screens.Question(
+                    text = "No transcription found — what should you do first?",
+                    options = listOf(
+                        "Record a lecture",
+                        "Open flashcards",
+                        "Check settings",
+                        "Close the app"
+                    ),
+                    correctAnswer = 0
+                )
             )
-        )
+        }
+
+        // Build simple comprehension questions from transcription sentences
+        val sentences = transcription
+            .split(Regex("[.!?]+"))
+            .map { it.trim() }
+            .filter { it.split(" ").size >= 6 }
+            .take(3)
+
+        return sentences.mapIndexed { index, sentence ->
+            val words = sentence.split(" ").filter { it.length > 4 }
+            val keyWord = words.getOrElse(index) { words.firstOrNull() ?: "topic" }
+            val wrongOptions = listOf(
+                "It was not mentioned in the lecture",
+                "The speaker skipped this part",
+                "This was discussed in a different session"
+            )
+            val correctOption = sentence.take(80)
+            val allOptions = (wrongOptions + correctOption).shuffled()
+            val correctIndex = allOptions.indexOf(correctOption).coerceAtLeast(0)
+
+            com.example.aiclassroomcompanion.ui.screens.Question(
+                text = "Which statement about \"${keyWord.take(20)}\" is correct based on the lecture?",
+                options = allOptions,
+                correctAnswer = correctIndex
+            )
+        }.ifEmpty {
+            listOf(
+                com.example.aiclassroomcompanion.ui.screens.Question(
+                    text = "What is the main subject discussed in this lecture?",
+                    options = listOf(
+                        transcription.take(60),
+                        "Something unrelated",
+                        "Not discussed",
+                        "Cannot determine"
+                    ),
+                    correctAnswer = 0
+                )
+            )
+        }
     }
 }
