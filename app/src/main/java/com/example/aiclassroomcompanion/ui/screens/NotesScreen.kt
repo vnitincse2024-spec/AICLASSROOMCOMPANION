@@ -45,9 +45,9 @@ fun NotesScreen(navController: NavController, transcription: String, viewModel: 
     
     val languages = listOf("Spanish", "French", "German", "Hindi", "Japanese", "Telugu")
 
-    // Trigger generation for active transcription
-    LaunchedEffect(Unit) {
-        if (notesState is AIState.Idle) {
+    // Re-generate notes whenever the transcription changes (i.e. a new lecture is opened)
+    LaunchedEffect(transcription) {
+        if (transcription.isNotBlank() && transcription != "no_data") {
             viewModel.generateNotes(transcription)
         }
     }

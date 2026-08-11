@@ -57,9 +57,32 @@ class LectureViewModel : ViewModel() {
         viewModelScope.launch {
             _notesState.value = AIState.Processing
             try {
-                val prompt = "Generate structured classroom notes from this transcription. Use Markdown headers and bullet points. Transcription: $transcription"
-                val response = hfService.generateText(prompt)
-                val notesText = if (!response.isNull_or_blank_or_fallback()) response!! else getFallbackNotes(transcription)
+                val systemPrompt = "You are an expert academic note-taker. Convert lecture transcriptions into clear, well-structured Markdown study notes."
+                val userPrompt = """
+Convert the following lecture transcription into well-structured study notes using this exact Markdown format:
+
+# 📚 Lecture Notes
+
+## 🔍 Overview
+[Write a 2-3 sentence summary of what this lecture is about]
+
+## 📝 Key Concepts
+- **[Concept Name]**: [Explanation]
+[List every important concept or term mentioned]
+
+## 📊 Important Details
+[Any formulas, definitions, examples, or specifics mentioned]
+
+## 💡 Key Takeaways
+1. [Takeaway 1]
+2. [Takeaway 2]
+3. [Takeaway 3]
+
+Transcription:
+$transcription
+                """.trimIndent()
+                val response = hfService.chat(systemPrompt, userPrompt, maxTokens = 1200)
+                val notesText = if (!response.isNullOrBlank()) response else getFallbackNotes(transcription)
                 _notesState.value = AIState.Success(notesText)
             } catch (e: Exception) {
                 _notesState.value = AIState.Success(getFallbackNotes(transcription))
@@ -72,7 +95,7 @@ class LectureViewModel : ViewModel() {
             _summaryState.value = AIState.Processing
             try {
                 val response = hfService.summarize(transcription)
-                val summaryText = if (!response.isNull_or_blank_or_fallback()) response!! else getFallbackSummary(transcription)
+                val summaryText = if (!response.isNullOrBlank()) response else getFallbackSummary(transcription)
                 _summaryState.value = AIState.Success(summaryText)
             } catch (e: Exception) {
                 _summaryState.value = AIState.Success(getFallbackSummary(transcription))
@@ -84,18 +107,30 @@ class LectureViewModel : ViewModel() {
         viewModelScope.launch {
             _flashcardsState.value = AIState.Processing
             try {
-                val prompt = "Create 5 flashcards from this lecture. For each flashcard, provide a 'question' and an 'answer'. Format your response as a simple list where each card is on a new line like 'Q: [question] | A: [answer]'. Transcription: $transcription"
-                val response = hfService.generateText(prompt)
-                val cards = response?.split("\n")?.filter { it.contains("|") }?.mapNotNull { line ->
-                    val parts = line.split("|")
-                    if (parts.size >= 2) {
-                        com.example.aiclassroomcompanion.ui.screens.Flashcard(
-                            question = parts[0].replace("Q:", "").trim(),
-                            answer = parts[1].replace("A:", "").trim()
-                        )
-                    } else null
-                } ?: emptyList()
-                
+                val systemPrompt = "You are a study card generator. Output ONLY the flashcards in the requested format with no extra text."
+                val userPrompt = """
+Create exactly 5 flashcards from the lecture transcription below.
+Return ONLY lines in this exact format, one flashcard per line:
+Q: [question] | A: [answer]
+
+Do not include any other text, numbering, or explanation.
+
+Transcription:
+$transcription
+                """.trimIndent()
+                val response = hfService.chat(systemPrompt, userPrompt, maxTokens = 600)
+                val cards = response?.lines()
+                    ?.filter { it.contains("|") && it.contains("Q:") }
+                    ?.mapNotNull { line ->
+                        val parts = line.split("|")
+                        if (parts.size >= 2) {
+                            com.example.aiclassroomcompanion.ui.screens.Flashcard(
+                                question = parts[0].replace("Q:", "").trim(),
+                                answer = parts[1].replace("A:", "").trim()
+                            )
+                        } else null
+                    } ?: emptyList()
+
                 val finalCards = if (cards.isNotEmpty()) cards else getFallbackFlashcards(transcription)
                 _flashcardsState.value = AIState.FlashcardsSuccess(finalCards)
             } catch (e: Exception) {
@@ -108,20 +143,33 @@ class LectureViewModel : ViewModel() {
         viewModelScope.launch {
             _quizState.value = AIState.Processing
             try {
-                val prompt = "Create a 3-question multiple choice quiz from this lecture. For each question, provide the question text, 4 options, and the index of the correct answer (0-3). Format as 'Q: [text] | O: [opt1, opt2, opt3, opt4] | C: [index]'. Transcription: $transcription"
-                val response = hfService.generateText(prompt)
-                val questions = response?.split("\n")?.filter { it.contains("|") }?.mapNotNull { line ->
-                    val parts = line.split("|")
-                    if (parts.size >= 3) {
-                        val options = parts[1].replace("O:", "").trim().removeSurrounding("[", "]").split(",").map { it.trim() }
-                        com.example.aiclassroomcompanion.ui.screens.Question(
-                            text = parts[0].replace("Q:", "").trim(),
-                            options = options,
-                            correctAnswer = parts[2].replace("C:", "").trim().toIntOrNull() ?: 0
-                        )
-                    } else null
-                } ?: emptyList()
-                
+                val systemPrompt = "You are a quiz generator. Output ONLY the quiz questions in the requested format with no extra text."
+                val userPrompt = """
+Create exactly 3 multiple choice quiz questions from the lecture transcription below.
+Return ONLY lines in this exact format, one question per line:
+Q: [question text] | O: [option1, option2, option3, option4] | C: [correct answer index 0-3]
+
+Do not include any other text, numbering, or explanation.
+
+Transcription:
+$transcription
+                """.trimIndent()
+                val response = hfService.chat(systemPrompt, userPrompt, maxTokens = 600)
+                val questions = response?.lines()
+                    ?.filter { it.contains("|") && it.contains("Q:") }
+                    ?.mapNotNull { line ->
+                        val parts = line.split("|")
+                        if (parts.size >= 3) {
+                            val options = parts[1].replace("O:", "").trim()
+                                .removeSurrounding("[", "]").split(",").map { it.trim() }
+                            com.example.aiclassroomcompanion.ui.screens.Question(
+                                text = parts[0].replace("Q:", "").trim(),
+                                options = options,
+                                correctAnswer = parts[2].replace("C:", "").trim().toIntOrNull() ?: 0
+                            )
+                        } else null
+                    } ?: emptyList()
+
                 val finalQuestions = if (questions.isNotEmpty()) questions else getFallbackQuiz(transcription)
                 _quizState.value = AIState.QuizSuccess(finalQuestions)
             } catch (e: Exception) {
@@ -134,8 +182,10 @@ class LectureViewModel : ViewModel() {
         viewModelScope.launch {
             _notesState.value = AIState.Processing
             try {
-                val prompt = "Translate the following classroom notes into $targetLanguage while maintaining the Markdown formatting and structure: $text"
-                val response = hfService.generateText(prompt)
+                val response = hfService.chat(
+                    systemPrompt = "You are a professional translator. Preserve all Markdown formatting exactly as-is.",
+                    userPrompt = "Translate the following classroom notes into $targetLanguage. Keep all Markdown headers, bullet points, and structure intact:\n\n$text"
+                )
                 val translated = if (!response.isNullOrBlank()) response else "Translated ($targetLanguage):\n\n$text"
                 _notesState.value = AIState.Success(translated)
             } catch (e: Exception) {
