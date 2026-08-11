@@ -13,8 +13,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
@@ -38,8 +41,12 @@ fun LecturesScreen(navController: NavController, viewModel: LibraryViewModel = v
     val tabs = listOf("All", "Recorded", "Uploaded")
     val libraryState by viewModel.libraryState.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.loadLectures()
+    // Re-load lectures every time this screen becomes RESUMED (e.g. when returning from RecordingScreen)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.loadLectures()
+        }
     }
 
     Scaffold(

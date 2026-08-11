@@ -50,11 +50,18 @@ class LibraryViewModel : ViewModel() {
 
     fun loadLectures() {
         val userId = auth.currentUser?.uid ?: "guest_user"
-        val currentLocal = LocalLectureStore.getLectures()
-        if (currentLocal.isEmpty() && _libraryState.value !is LibraryState.Success) {
+
+        // Step 1: Immediately show whatever is already saved locally so the UI is
+        //         never blank (covers the "just returned from RecordingScreen" case).
+        val localNow = LocalLectureStore.getLectures()
+        if (localNow.isNotEmpty()) {
+            _libraryState.value = LibraryState.Success(localNow)
+            _recentLecture.value = localNow.firstOrNull()
+        } else if (_libraryState.value !is LibraryState.Success) {
             _libraryState.value = LibraryState.Loading
         }
 
+        // Step 2: Asynchronously merge with Firestore for multi-device sync.
         viewModelScope.launch {
             try {
                 val remoteLectures = withTimeoutOrNull(5000) {
@@ -69,17 +76,23 @@ class LibraryViewModel : ViewModel() {
                     }
                 } ?: emptyList()
 
+                // Local always wins over remote (local has the freshest transcription).
                 val localList = LocalLectureStore.getLectures()
                 val mergedMap = LinkedHashMap<String, Lecture>()
-
                 localList.forEach { if (it.id.isNotEmpty()) mergedMap[it.id] = it else mergedMap[it.title] = it }
-                remoteLectures.forEach { if (it.id.isNotEmpty()) mergedMap[it.id] = it }
+                remoteLectures.forEach { remote ->
+                    // Only add remote entries that are NOT already in local store.
+                    if (remote.id.isNotEmpty() && !mergedMap.containsKey(remote.id)) {
+                        mergedMap[remote.id] = remote
+                    }
+                }
 
                 val allLectures = mergedMap.values.sortedByDescending { it.date }
 
                 _libraryState.value = LibraryState.Success(allLectures)
                 _recentLecture.value = allLectures.firstOrNull()
             } catch (e: Exception) {
+                // On any failure fall back to whatever is locally stored.
                 val fallbackList = LocalLectureStore.getLectures()
                 _libraryState.value = LibraryState.Success(fallbackList)
                 _recentLecture.value = fallbackList.firstOrNull()
