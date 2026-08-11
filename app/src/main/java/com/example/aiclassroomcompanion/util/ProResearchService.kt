@@ -4,7 +4,10 @@ class ProResearchService {
     private val hfService = HuggingFaceService()
 
     suspend fun performAdvancedResearch(query: String): String? {
-        val prompt = "You are an advanced academic research assistant. Provide a deep, academic analysis for: $query"
-        return hfService.generateText(prompt, model = "Qwen/Qwen2.5-72B-Instruct")
+        return hfService.chat(
+            systemPrompt = "You are an advanced academic research assistant. Provide a thorough, well-structured academic analysis.",
+            userPrompt = "Provide a deep academic analysis for: $query",
+            maxTokens = 1200
+        )
     }
 }
