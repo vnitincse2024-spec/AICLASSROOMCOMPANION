@@ -141,47 +141,58 @@ class RecordingViewModel(application: Application) : AndroidViewModel(applicatio
     fun stopAndSaveRecording(title: String) {
         stopRecording()
         
-        val file = currentFile ?: return
+        val file = currentFile ?: File(getApplication<Application>().cacheDir, "lecture_${System.currentTimeMillis()}.wav")
         val durationString = String.format(Locale.getDefault(), "%02d:%02d", _seconds.value / 60, _seconds.value % 60)
         
-        uploadLecture(file, title, durationString)
+        val userId = auth.currentUser?.uid ?: "guest_user"
+        val docId = UUID.randomUUID().toString()
+        
+        val localLecture = Lecture(
+            id = docId,
+            userId = userId,
+            title = title,
+            date = com.google.firebase.Timestamp.now(),
+            duration = durationString,
+            audioUrl = Uri.fromFile(file).toString(),
+            transcription = _transcription.value,
+            type = "Recorded"
+        )
+
+        // Immediately save locally so UI updates instantly and data is persisted
+        com.example.aiclassroomcompanion.util.LocalLectureStore.addLecture(localLecture, getApplication())
+        _uploadState.value = UploadState.Success
+
+        // Asynchronously sync to Firebase in background without blocking UI
+        uploadLecture(file, localLecture)
     }
 
-    private fun uploadLecture(file: File, title: String, duration: String) {
-        val userId = auth.currentUser?.uid ?: "guest_user"
-        _uploadState.value = UploadState.Uploading
-        
+    private fun uploadLecture(file: File, lecture: Lecture) {
         viewModelScope.launch {
-            val docRef = firestore.collection("lectures").document()
-            var downloadUrl = Uri.fromFile(file).toString()
-
             try {
-                val fileName = "lectures/$userId/${file.name}"
-                val storageRef = storage.reference.child(fileName)
-                storageRef.putFile(Uri.fromFile(file)).await()
-                downloadUrl = storageRef.downloadUrl.await().toString()
-            } catch (e: Exception) {
-                Log.w("RecordingViewModel", "Firebase Storage upload failed, storing local audio URI", e)
-            }
-            
-            val lecture = Lecture(
-                id = docRef.id,
-                userId = userId,
-                title = title,
-                duration = duration,
-                audioUrl = downloadUrl,
-                transcription = _transcription.value,
-                type = "Recorded"
-            )
+                var downloadUrl = lecture.audioUrl
+                if (file.exists() && file.length() > 0) {
+                    try {
+                        val fileName = "lectures/${lecture.userId}/${file.name}"
+                        val storageRef = storage.reference.child(fileName)
+                        storageRef.putFile(Uri.fromFile(file)).await()
+                        downloadUrl = storageRef.downloadUrl.await().toString()
+                    } catch (e: Exception) {
+                        Log.w("RecordingViewModel", "Firebase Storage upload failed, keeping local audio URI", e)
+                    }
+                }
 
-            try {
-                docRef.set(lecture).await()
-            } catch (e: Exception) {
-                Log.w("RecordingViewModel", "Firestore save failed, saved locally", e)
-            }
+                val docRef = firestore.collection("lectures").document(lecture.id)
+                val updatedLecture = lecture.copy(audioUrl = downloadUrl)
 
-            com.example.aiclassroomcompanion.util.LocalLectureStore.addLecture(lecture)
-            _uploadState.value = UploadState.Success
+                try {
+                    docRef.set(updatedLecture).await()
+                    com.example.aiclassroomcompanion.util.LocalLectureStore.addLecture(updatedLecture, getApplication())
+                } catch (e: Exception) {
+                    Log.w("RecordingViewModel", "Firestore save failed, kept saved locally", e)
+                }
+            } catch (e: Exception) {
+                Log.e("RecordingViewModel", "Background sync exception", e)
+            }
         }
     }
 

@@ -27,6 +27,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        com.example.aiclassroomcompanion.util.LocalLectureStore.init(applicationContext)
+
         // Launch permission request on startup as requested in guide
         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
 

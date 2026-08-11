@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withTimeoutOrNull
 
 sealed class LibraryState {
     object Loading : LibraryState()
@@ -21,55 +22,69 @@ class LibraryViewModel : ViewModel() {
     private val firestore = FirebaseFirestore.getInstance()
     private val auth = FirebaseAuth.getInstance()
 
-    private val _libraryState = MutableStateFlow<LibraryState>(LibraryState.Loading)
+    private val _libraryState = MutableStateFlow<LibraryState>(
+        if (LocalLectureStore.getLectures().isNotEmpty()) {
+            LibraryState.Success(LocalLectureStore.getLectures())
+        } else {
+            LibraryState.Loading
+        }
+    )
     val libraryState: StateFlow<LibraryState> = _libraryState
 
-    private val _recentLecture = MutableStateFlow<Lecture?>(null)
+    private val _recentLecture = MutableStateFlow<Lecture?>(LocalLectureStore.getLectures().firstOrNull())
     val recentLecture: StateFlow<Lecture?> = _recentLecture
 
     init {
         viewModelScope.launch {
-            LocalLectureStore.localLectures.collect {
-                loadLectures()
+            LocalLectureStore.localLectures.collect { localList ->
+                updateState(localList)
             }
         }
+        loadLectures()
+    }
+
+    private fun updateState(localList: List<Lecture>) {
+        _libraryState.value = LibraryState.Success(localList)
+        _recentLecture.value = localList.firstOrNull()
     }
 
     fun loadLectures() {
         val userId = auth.currentUser?.uid ?: "guest_user"
-        _libraryState.value = LibraryState.Loading
-        
+        val currentLocal = LocalLectureStore.getLectures()
+        if (currentLocal.isEmpty() && _libraryState.value !is LibraryState.Success) {
+            _libraryState.value = LibraryState.Loading
+        }
+
         viewModelScope.launch {
             try {
-                val remoteLectures = try {
-                    val snapshot = firestore.collection("lectures")
-                        .whereEqualTo("userId", userId)
-                        .get()
-                        .await()
-                    snapshot.toObjects(Lecture::class.java)
-                } catch (e: Exception) {
-                    emptyList<Lecture>()
-                }
-                
+                val remoteLectures = withTimeoutOrNull(5000) {
+                    try {
+                        val snapshot = firestore.collection("lectures")
+                            .whereEqualTo("userId", userId)
+                            .get()
+                            .await()
+                        snapshot.toObjects(Lecture::class.java)
+                    } catch (e: Exception) {
+                        emptyList<Lecture>()
+                    }
+                } ?: emptyList()
+
                 val localList = LocalLectureStore.getLectures()
                 val mergedMap = LinkedHashMap<String, Lecture>()
-                
+
                 localList.forEach { if (it.id.isNotEmpty()) mergedMap[it.id] = it else mergedMap[it.title] = it }
                 remoteLectures.forEach { if (it.id.isNotEmpty()) mergedMap[it.id] = it }
 
                 val allLectures = mergedMap.values.sortedByDescending { it.date }
-                
+
                 _libraryState.value = LibraryState.Success(allLectures)
                 _recentLecture.value = allLectures.firstOrNull()
             } catch (e: Exception) {
                 val fallbackList = LocalLectureStore.getLectures()
-                if (fallbackList.isNotEmpty()) {
-                    _libraryState.value = LibraryState.Success(fallbackList)
-                    _recentLecture.value = fallbackList.firstOrNull()
-                } else {
-                    _libraryState.value = LibraryState.Error(e.message ?: "Failed to load library")
-                }
+                _libraryState.value = LibraryState.Success(fallbackList)
+                _recentLecture.value = fallbackList.firstOrNull()
             }
         }
     }
 }
+
